@@ -247,6 +247,48 @@ impl<T: Config> SignedExtension for CheckNonce<T> {
     }
 }
 
+/// 
+#[derive(Derivative, Encode, Decode, TypeInfo)]
+#[derivative(
+    Clone(bound = ""),
+    PartialEq(bound = ""),
+    Debug(bound = ""),
+    Eq(bound = "")
+)]
+#[scale_info(skip_type_params(T))]
+pub struct CheckAppId<T: Config>(
+    pub PhantomDataSendSync<T>,
+    pub u32
+);
+
+impl<T: Config> Default for CheckAppId<T> {
+    fn default() -> Self {
+        Self (PhantomDataSendSync::new(), 0) 
+    }
+}
+
+impl<T: Config> SignedExtension for CheckAppId<T> {
+    const IDENTIFIER: &'static str = "CheckAppId";
+    type AccountId = T::AccountId;
+    type Call = ();
+    type AdditionalSigned = ();
+    type Pre = ();
+    fn additional_signed(
+        &self,
+    ) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+        Ok(())
+    }
+    fn pre_dispatch(
+        self,
+        _who: &Self::AccountId,
+        _call: &Self::Call,
+        _info: &DispatchInfoOf<Self::Call>,
+        _len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        Ok(())
+    }
+}
+
 /// Resource limit check.
 #[derive(Derivative, Encode, Decode, TypeInfo)]
 #[derivative(
@@ -479,3 +521,108 @@ where
 ///
 /// Note that this must match the `SignedExtra` type in the target runtime's extrinsic definition.
 pub type DefaultExtra<T> = DefaultExtraWithTxPayment<T, ChargeTransactionPayment<T>>;
+
+
+/// Default `SignedExtra` for Avail runtimes.
+#[derive(Derivative, Encode, Decode, TypeInfo)]
+#[derivative(
+    Clone(bound = ""),
+    PartialEq(bound = ""),
+    Debug(bound = ""),
+    Eq(bound = "")
+)]
+#[scale_info(skip_type_params(T))]
+pub struct AvailExtra<T: Config> {
+    spec_version: u32,
+    tx_version: u32,
+    nonce: T::Index,
+    genesis_hash: T::Hash,
+    tip: u128,
+    app_id: u32,
+}
+
+/// Parameters for Avail Extra.
+#[derive(Default)]
+pub struct AvailExtraParameters {
+    /// Tip to gain additional priority. 
+    pub tip: u128,
+    /// Application ID for the TX
+    pub app_id: u32,
+}
+
+impl<T> SignedExtra<T> for AvailExtra<T>
+where
+    T: Config,
+{
+    type Extra = (
+        CheckSpecVersion<T>,
+        CheckTxVersion<T>,
+        CheckGenesis<T>,
+        CheckMortality<T>,
+        CheckNonce<T>,
+        CheckWeight<T>,
+        ChargeTransactionPayment<T>,
+        CheckAppId<T>
+    );
+    type Parameters = AvailExtraParameters; 
+
+    fn new(
+        spec_version: u32,
+        tx_version: u32,
+        nonce: T::Index,
+        genesis_hash: T::Hash,
+        params: Self::Parameters,
+    ) -> Self {
+        Self {
+            spec_version,
+            tx_version,
+            nonce,
+            genesis_hash,
+            tip: params.tip,
+            app_id: params.app_id,
+        }
+    }
+
+    fn extra(&self) -> Self::Extra {
+        (
+            CheckSpecVersion(PhantomDataSendSync::new(), self.spec_version),
+            CheckTxVersion(PhantomDataSendSync::new(), self.tx_version),
+            CheckGenesis(PhantomDataSendSync::new(), self.genesis_hash),
+            CheckMortality(
+                (Era::Immortal, PhantomDataSendSync::new()),
+                self.genesis_hash,
+            ),
+            CheckNonce(self.nonce),
+            CheckWeight(PhantomDataSendSync::new()),
+            ChargeTransactionPayment(self.tip, PhantomDataSendSync::new()),
+            CheckAppId(PhantomDataSendSync::new(), self.app_id),
+        )
+    }
+}
+
+impl<T> SignedExtension for AvailExtra<T>
+where
+    T: Config,
+{
+    const IDENTIFIER: &'static str = "AvailExtra";
+    type AccountId = T::AccountId;
+    type Call = ();
+    type AdditionalSigned =
+        <<Self as SignedExtra<T>>::Extra as SignedExtension>::AdditionalSigned;
+    type Pre = ();
+
+    fn additional_signed(
+        &self,
+    ) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+        self.extra().additional_signed()
+    }
+    fn pre_dispatch(
+        self,
+        _who: &Self::AccountId,
+        _call: &Self::Call,
+        _info: &DispatchInfoOf<Self::Call>,
+        _len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        Ok(())
+    }
+}

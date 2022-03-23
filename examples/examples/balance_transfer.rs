@@ -26,12 +26,13 @@ use sp_keyring::AccountKeyring;
 use subxt::{
     ClientBuilder,
     DefaultConfig,
-    DefaultExtra,
+    AvailExtra,
+    AvailExtraParameters,
     PairSigner,
 };
 
-#[subxt::subxt(runtime_metadata_path = "examples/polkadot_metadata.scale")]
-pub mod polkadot {}
+#[subxt::subxt(runtime_metadata_path = "examples/avail.metadata.scale")]
+pub mod avail{}
 
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -43,12 +44,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let api = ClientBuilder::new()
         .build()
         .await?
-        .to_runtime_api::<polkadot::RuntimeApi<DefaultConfig, DefaultExtra<DefaultConfig>>>();
+        .to_runtime_api::<avail::RuntimeApi<DefaultConfig, AvailExtra<DefaultConfig>>>();
     let hash = api
         .tx()
         .balances()
         .transfer(dest, 10_000)
-        .sign_and_submit(&signer)
+        .sign_and_submit_with_additional(&signer, AvailExtraParameters{ tip: 0, app_id: 0 })
         .await?;
 
     println!("Balance transfer extrinsic submitted: {}", hash);

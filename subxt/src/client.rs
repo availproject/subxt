@@ -242,7 +242,23 @@ where
         <<X as SignedExtra<T>>::Extra as SignedExtension>::AdditionalSigned:
             Send + Sync + 'static,
     {
-        let extrinsic = self.create_signed(signer, Default::default()).await?;
+        self.sign_and_submit_with_additional(signer, Default::default()).await
+    }
+
+    /// Creates and signs an extrinsic using `additional_params` and submits to the chain for 
+    /// block inclusion.
+    ///
+    /// Returns `Ok` with the extrinsic hash if it is valid extrinsic.
+    pub async fn sign_and_submit_with_additional(
+        self,
+        signer: &(dyn Signer<T, X> + Send + Sync),
+        additional_params: X::Parameters,
+    ) -> Result<T::Hash, BasicError>
+    where
+        <<X as SignedExtra<T>>::Extra as SignedExtension>::AdditionalSigned:
+            Send + Sync + 'static,
+    {
+        let extrinsic = self.create_signed(signer, additional_params).await?;
         self.client.rpc().submit_extrinsic(extrinsic).await
     }
 

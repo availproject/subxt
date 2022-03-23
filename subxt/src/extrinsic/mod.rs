@@ -29,8 +29,11 @@ pub use self::{
         CheckSpecVersion,
         CheckTxVersion,
         CheckWeight,
+        CheckAppId,
         DefaultExtra,
         DefaultExtraWithTxPayment,
+        AvailExtra,
+        AvailExtraParameters,
         SignedExtra,
     },
     signer::{
