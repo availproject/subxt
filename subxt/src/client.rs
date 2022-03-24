@@ -226,6 +226,31 @@ where
         Ok(TransactionProgress::new(sub, self.client, ext_hash))
     }
 
+    /// Creates and signs an extrinsic using `additional_params` and submits it to the chain.
+    ///
+    /// Returns a [`TransactionProgress`], which can be used to track the status of the transaction
+    /// and obtain details about it, once it has made it into a block.
+    pub async fn sign_and_submit_with_aditional_then_watch(
+        self,
+        signer: &(dyn Signer<T, X> + Send + Sync),
+        additional_params: X::Parameters,
+    ) -> Result<TransactionProgress<'client, T, E, Evs>, BasicError>
+    where
+        <<X as SignedExtra<T>>::Extra as SignedExtension>::AdditionalSigned:
+            Send + Sync + 'static,
+    {
+        // Sign the call data to create our extrinsic.
+        let extrinsic = self.create_signed(signer, additional_params).await?;
+
+        // Get a hash of the extrinsic (we'll need this later).
+        let ext_hash = T::Hashing::hash_of(&extrinsic);
+
+        // Submit and watch for transaction progress.
+        let sub = self.client.rpc().watch_extrinsic(extrinsic).await?;
+
+        Ok(TransactionProgress::new(sub, self.client, ext_hash))
+    }
+
     /// Creates and signs an extrinsic and submits to the chain for block inclusion.
     ///
     /// Returns `Ok` with the extrinsic hash if it is valid extrinsic.
